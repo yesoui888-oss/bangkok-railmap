@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>バンコク鉄道 全駅マップ・乗換案内</title>
+<style>
+:root{
+  --bg:#F3F4F1; --panel:#FFFFFF; --ink:#23262A; --muted:#6B7280;
+  --border:#E3E5E0; --accent:#00695C; --accent-ink:#FFFFFF;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Hiragino Sans","Noto Sans JP","Noto Sans Thai",sans-serif;
+  font-size:15px;line-height:1.6;}
+.wrap{max-width:860px;margin:0 auto;padding:14px 12px 40px;}
+h1{font-size:20px;margin:6px 0 8px;letter-spacing:.02em;background:var(--accent);color:#fff;padding:10px 14px;border-radius:12px;}
+h2{font-size:16px;margin:26px 0 8px;}
+.sub{font-size:12.5px;color:var(--muted);margin:0 0 14px;}
+.row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+select{flex:1;min-width:150px;padding:10px 10px;border:1px solid var(--border);border-radius:10px;
+  background:var(--panel);color:var(--ink);font-size:14px;}
+button{padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);
+  color:var(--ink);font-size:14px;cursor:pointer;}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;}
+#res{background:var(--panel);border:1px solid var(--border);border-radius:14px;
+  padding:12px 14px;font-size:13.5px;color:var(--muted);margin:10px 0;}
+.leg{padding:6px 10px;margin:8px 0;font-size:13.5px;color:var(--ink);border-left:4px solid #ccc;}
+.trrow{font-size:12.5px;color:var(--muted);margin:2px 0 2px 14px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.badge{display:inline-block;font-size:11px;border-radius:6px;padding:2px 8px;font-weight:600;}
+.b-dj{background:#E6F4EA;color:#137347;}
+.b-wk{background:#FDF1D6;color:#92600A;}
+.mapbox{position:relative;}
+.mapc{touch-action:manipulation;cursor:default;background:var(--panel);border:1px solid var(--border);
+  border-radius:14px;width:100%;height:60vh;display:block;}
+.maptitle{margin:30px 0 10px;line-height:1.35;background:var(--accent);color:#fff;padding:14px 16px;border-radius:12px;}
+.maptitle .tth{font-size:28px;font-weight:700;display:block;color:#fff;}
+.maptitle .ten{font-size:16px;color:rgba(255,255,255,.85);display:block;margin-top:3px;}
+.zoombtns{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;}
+.zoombtns button{width:42px;height:42px;font-size:18px;padding:0;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+.zoombtns button.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.zoombtns button.small{font-size:11px;}
+#legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin:12px 0 6px;}
+.lchip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);}
+.ldot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+.note{font-size:12px;color:var(--muted);margin:6px 0 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>バンコク鉄道 全駅マップ・乗換案内</h1>
+  <p class="sub">BTS・MRT・ARL・SRT 10路線・約190駅|上:駅番号+英語/下:タイ語|所要時間・運賃は目安</p>
+
+  <div class="row">
+    <select id="from"><option value="">出発駅を選択</option></select>
+    <select id="to"><option value="">到着駅を選択</option></select>
+  </div>
+  <div class="row">
+    <button id="btnGo" class="primary" style="flex:1;">ルート検索</button>
+    <button id="btnSwap">⇄ 入替</button>
+    <button id="btnReset">リセット</button>
+  </div>
+
+  <div id="res">出発駅と到着駅を選ぶか、マップ上の駅をタップしてください(上下どちらのマップでもOK)。＋/−で拡大縮小。マップをドラッグで動かしたい時は「移動」ボタンをONにしてください(OFFの時はページが普通にスクロールできます)。</div>
+
+  <div class="mapbox" id="box1">
+    <svg class="mapc" viewBox="0 0 2100 2000" role="img" aria-label="バンコク鉄道全駅路線図(英語)">
+      <path class="river" d="M560 300 C620 480 640 600 620 720 C600 840 620 940 600 1040 C580 1140 620 1240 720 1330 C800 1400 862 1480 852 1600 L842 1995"
+        fill="none" stroke="#BBD6EA" stroke-width="30" opacity="0.55" stroke-linecap="round"/>
+    </svg>
+    <div class="zoombtns">
+      <button class="zin" aria-label="拡大">＋</button>
+      <button class="zout" aria-label="縮小">−</button>
+      <button class="zmove small" aria-label="マップ移動モード切替">移動</button>
+      <button class="zfit small" aria-label="全体表示">全体</button>
+    </div>
+  </div>
+
+  <div class="maptitle">
+    <span class="tth">แผนที่รถไฟฟ้ากรุงเทพฯ ฉบับภาษาไทย</span>
+    <span class="ten">Bangkok Rail Transit Map — Thai Version</span>
+  </div>
+  <div class="mapbox" id="box2">
+    <svg class="mapc" viewBox="0 0 2100 2000" role="img" aria-label="バンコク鉄道全駅路線図(タイ語)">
+      <path class="river" d="M560 300 C620 480 640 600 620 720 C600 840 620 940 600 1040 C580 1140 620 1240 720 1330 C800 1400 862 1480 852 1600 L842 1995"
+        fill="none" stroke="#BBD6EA" stroke-width="30" opacity="0.55" stroke-linecap="round"/>
+    </svg>
+    <div class="zoombtns">
+      <button class="zin" aria-label="拡大">＋</button>
+      <button class="zout" aria-label="縮小">−</button>
+      <button class="zmove small" aria-label="マップ移動モード切替">移動</button>
+      <button class="zfit small" aria-label="全体表示">全体</button>
+    </div>
+  </div>
+
+  <div class="maptitle">
+    <span class="tth">Bangkok Rail Transit Map — English Version</span>
+    <span class="ten">แผนที่รถไฟฟ้ากรุงเทพฯ ฉบับภาษาอังกฤษ</span>
+  </div>
+  <div class="mapbox" id="box3">
+    <svg class="mapc" viewBox="0 0 2100 2000" role="img" aria-label="バンコク鉄道全駅路線図(英語版)">
+      <path class="river" d="M560 300 C620 480 640 600 620 720 C600 840 620 940 600 1040 C580 1140 620 1240 720 1330 C800 1400 862 1480 852 1600 L842 1995"
+        fill="none" stroke="#BBD6EA" stroke-width="30" opacity="0.55" stroke-linecap="round"/>
+    </svg>
+    <div class="zoombtns">
+      <button class="zin" aria-label="拡大">＋</button>
+      <button class="zout" aria-label="縮小">−</button>
+      <button class="zmove small" aria-label="マップ移動モード切替">移動</button>
+      <button class="zfit small" aria-label="全体表示">全体</button>
+    </div>
+  </div>
+
+  <div id="legend"></div>
+  <p class="note">◎=乗換駅(緑「直結」=同一駅・改札直結/黄「徒歩連絡」=連絡通路)。運賃は割引前の概算、所要時間は待ち時間込みの目安です。位置関係は参考路線図に基づく模式図で、ピンクラインのムアントンタニー支線などは省略しています。</p>
+</div>
+
+<script>
+(function(){
+var LINES=[
+{k:'suk',n:'BTSスクンビット線',c:'#6CBE45',op:'bts',hm:2,st:[
+['N24','Khu Khot','คูคต',1020,200],['N23','Yaek Kor Por Aor','แยก คปอ.',955,260],['N22','Royal Thai Air Force Museum','พิพิธภัณฑ์กองทัพอากาศ'],['N21','Bhumibol Adulyadej Hospital','โรงพยาบาลภูมิพลอดุลยเดช'],['N20','Saphan Mai','สะพานใหม่'],['N19','Sai Yud','สายหยุด'],['N18','Phahon Yothin 59','พหลโยธิน 59'],['N17','Wat Phra Si Mahathat','วัดพระศรีมหาธาตุ',950,480],['N16','11th Infantry Regiment','กรมทหารราบที่ 11'],['N15','Bang Bua','บางบัว'],['N14','Royal Forest Department','กรมป่าไม้'],['N13','Kasetsart University','มหาวิทยาลัยเกษตรศาสตร์'],['N12','Sena Nikhom','เสนานิคม'],['N11','Ratchayothin','รัชโยธิน'],['N10','Phahon Yothin 24','พหลโยธิน 24'],['N9','Ha Yaek Lat Phrao','ห้าแยกลาดพร้าว',950,810],['N8','Mo Chit','หมอชิต',950,845],['N7','Saphan Khwai','สะพานควาย'],['N5','Ari','อารีย์'],['N4','Sanam Pao','สนามเป้า'],['N3','Victory Monument','อนุสาวรีย์ชัยสมรภูมิ'],['N2','Phaya Thai','พญาไท',950,1105],['N1','Ratchathewi','ราชเทวี'],['CEN','Siam','สยาม',950,1180],['E1','Chit Lom','ชิดลม'],['E2','Phloen Chit','เพลินจิต'],['E3','Nana','นานา'],['E4','Asok','อโศก',1160,1200],['E5','Phrom Phong','พร้อมพงษ์'],['E6','Thong Lo','ทองหล่อ'],['E7','Ekkamai','เอกมัย'],['E8','Phra Khanong','พระโขนง'],['E9','On Nut','อ่อนนุช',1330,1330],['E10','Bang Chak','บางจาก'],['E11','Punnawithi','ปุณณวิถี'],['E12','Udom Suk','อุดมสุข'],['E13','Bang Na','บางนา'],['E14','Bearing','แบริ่ง',1370,1560],['E15','Samrong','สำโรง',1310,1610],['E16','Pu Chao','ปู่เจ้า'],['E17','Chang Erawan','ช้างเอราวัณ'],['E18','Royal Thai Naval Academy','โรงเรียนนายเรือ'],['E19','Pak Nam','ปากน้ำ'],['E20','Srinagarindra','ศรีนครินทร์'],['E21','Phraek Sa','แพรกษา'],['E22','Sai Luat','สายลวด'],['E23','Kheha','เคหะฯ',1560,1930]]},
+{k:'sil',n:'BTSシーロム線',c:'#00695C',op:'bts',hm:2,st:[
+['W1','National Stadium','สนามกีฬาแห่งชาติ',880,1180],['CEN','Siam','สยาม',950,1180],['S1','Ratchadamri','ราชดำริ'],['S2','Sala Daeng','ศาลาแดง',958,1282],['S3','Chong Nonsi','ช่องนนทรี'],['S4','Saint Louis','เซนต์หลุยส์'],['S5','Surasak','สุรศักดิ์'],['S6','Saphan Taksin','สะพานตากสิน',820,1380],['S7','Krung Thon Buri','กรุงธนบุรี',705,1408],['S8','Wongwian Yai','วงเวียนใหญ่'],['S9','Pho Nimit','โพธิ์นิมิตร'],['S10','Talat Phlu','ตลาดพลู'],['S11','Wutthakat','วุฒากาศ'],['S12','Bang Wa','บางหว้า',388,1288]]},
+{k:'gold',n:'BTSゴールドライン',c:'#C9A227',op:'gold',hm:2,st:[
+['G1','Krung Thon Buri','กรุงธนบุรี',716,1420],['G2','Charoen Nakhon','เจริญนคร'],['G3','Khlong San','คลองสาน',800,1470]]},
+{k:'blu',n:'MRTブルーライン',c:'#1E4D8C',op:'blu',hm:2,st:[
+['BL38','Lak Song','หลักสอง',215,1500],['BL37','Bang Khae','บางแค'],['BL36','Phasi Charoen','ภาษีเจริญ'],['BL35','Phetkasem 48','เพชรเกษม 48'],['BL34','Bang Wa','บางหว้า',400,1300],['BL33','Bang Phai','บางไผ่'],['BL01','Tha Phra','ท่าพระ',515,1275],['BL32','Itsaraphap','อิสรภาพ'],['BL31','Sanam Chai','สนามไชย'],['BL30','Sam Yot','สามยอด'],['BL29','Wat Mangkon','วัดมังกร'],['BL28','Hua Lamphong','หัวลำโพง',868,1272],['BL27','Sam Yan','สามย่าน'],['BL26','Si Lom','สีลม',982,1300],['BL25','Lumphini','ลุมพินี',1055,1290],['BL24','Khlong Toei','คลองเตย'],['BL23','Queen Sirikit N.C.C.','ศูนย์การประชุมแห่งชาติสิริกิติ์'],['BL22','Sukhumvit','สุขุมวิท',1172,1215],['BL21','Phetchaburi','เพชรบุรี',1178,1120],['BL20','Phra Ram 9','พระราม 9'],['BL19','Thailand Cultural Centre','ศูนย์วัฒนธรรมแห่งประเทศไทย'],['BL18','Huai Khwang','ห้วยขวาง'],['BL17','Sutthisan','สุทธิสาร'],['BL16','Ratchadaphisek','รัชดาภิเษก'],['BL15','Lat Phrao','ลาดพร้าว',1118,790],['BL14','Phahon Yothin','พหลโยธิน',975,805],['BL13','Chatuchak Park','สวนจตุจักร',925,835],['BL12','Kamphaeng Phet','กำแพงเพชร'],['BL11','Bang Sue','บางซื่อ',808,898],['BL10','Tao Poon','เตาปูน',755,880],['BL09','Bang Pho','บางโพ'],['BL08','Bang O','บางอ้อ'],['BL07','Bang Phlat','บางพลัด',525,955],['BL06','Sirindhorn','สิรินธร'],['BL05','Bang Yi Khan','บางยี่ขัน'],['BL04','Bang Khun Non','บางขุนนนท์',470,1120],['BL03','Fai Chai','ไฟฉาย'],['BL02','Charan 13','จรัญฯ 13'],['@','blu',6]]},
+{k:'pur',n:'MRTパープルライン',c:'#7B1FA2',op:'pur',hm:2,st:[
+['PP01','Khlong Bang Phai','คลองบางไผ่',145,520],['PP02','Talad Bang Yai','ตลาดบางใหญ่'],['PP03','Sam Yaek Bang Yai','สามแยกบางใหญ่'],['PP04','Bang Phlu','บางพลู'],['PP05','Bang Rak Yai','บางรักใหญ่'],['PP06','Bang Rak Noi Tha It','บางรักน้อยท่าอิฐ'],['PP07','Sai Ma','ไทรม้า'],['PP08','Phra Nang Klao Bridge','สะพานพระนั่งเกล้า'],['PP09','Yaek Nonthaburi 1','แยกนนทบุรี 1'],['PP10','Bang Krasor','บางกระสอ'],['PP11','Nonthaburi Civic Center','ศูนย์ราชการนนทบุรี',610,640],['PP12','Ministry of Public Health','กระทรวงสาธารณสุข'],['PP13','Yaek Tiwanon','แยกติวานนท์'],['PP14','Wong Sawang','วงศ์สว่าง'],['PP15','Bang Son','บางซ่อน',728,790],['PP16','Tao Poon','เตาปูน',748,868]]},
+{k:'pnk',n:'MRTピンクライン',c:'#D9418C',op:'pnk',hm:2,st:[
+['PK01','Nonthaburi Civic Center','ศูนย์ราชการนนทบุรี',622,652],['PK02','Khae Rai','แคราย'],['PK03','Sanambin Nam','สนามบินน้ำ'],['PK04','Samakkhi','สามัคคี'],['PK05','Royal Irrigation Department','กรมชลประทาน'],['PK06','Yaek Pak Kret','แยกปากเกร็ด',532,482],['PK07','Pak Kret Bypass','เลี่ยงเมืองปากเกร็ด'],['PK08','Chaeng Watthana-Pak Kret 28','แจ้งวัฒนะ-ปากเกร็ด 28'],['PK09','Si Rat','ศรีรัช'],['PK10','Muang Thong Thani','เมืองทองธานี'],['PK11','Chaeng Watthana 14','แจ้งวัฒนะ 14'],['PK12','Government Complex','ศูนย์ราชการเฉลิมพระเกียรติ'],['PK13','National Telecom','โทรคมนาคมแห่งชาติ'],['PK14','Lak Si','หลักสี่'],['PK15','Rajabhat Phranakhon','ราชภัฏพระนคร'],['PK16','Wat Phra Si Mahathat','วัดพระศรีมหาธาตุ',962,470],['PK17','Ram Inthra 3','รามอินทรา 3'],['PK18','Lat Pla Khao','ลาดปลาเค้า'],['PK19','Ram Inthra Km.4','รามอินทรา กม.4'],['PK20','Maiyalap','มัยลาภ'],['PK21','Vacharaphol','วัชรพล'],['PK22','Ram Inthra Km.6','รามอินทรา กม.6'],['PK23','Khu Bon','คูบอน'],['PK24','Ram Inthra Km.9','รามอินทรา กม.9'],['PK25','Outer Ring Road Ram Inthra','วงแหวนรามอินทรา'],['PK26','Nopparat','นพรัตน์',1640,470],['PK27','Bang Chan','บางชัน'],['PK28','Setthabutbamphen','เศรษฐบุตรบำเพ็ญ'],['PK29','Min Buri Market','ตลาดมีนบุรี'],['PK30','Min Buri','มีนบุรี',1745,610]]},
+{k:'yel',n:'MRTイエローライン',c:'#E8B71A',op:'yel',hm:2,st:[
+['YL01','Lat Phrao','ลาดพร้าว',1130,778],['YL02','Phawana','ภาวนา'],['YL03','Chok Chai 4','โชคชัย 4'],['YL04','Lat Phrao 71','ลาดพร้าว 71'],['YL05','Lat Phrao 83','ลาดพร้าว 83'],['YL06','Mahat Thai','มหาดไทย'],['YL07','Lat Phrao 101','ลาดพร้าว 101'],['YL08','Bang Kapi','บางกะปิ',1445,838],['YL09','Yaek Lam Sali','แยกลำสาลี'],['YL10','Si Kritha','ศรีกรีฑา'],['YL11','Hua Mak','หัวหมาก',1510,1065],['YL12','Kalantan','กลันตัน'],['YL13','Si Nut','ศรีนุช'],['YL14','Srinagarindra 38','ศรีนครินทร์ 38'],['YL15','Suan Luang Rama IX','สวนหลวง ร.9'],['YL16','Si Udom','ศรีอุดม'],['YL17','Si Iam','ศรีเอี่ยม',1490,1420],['YL18','Si La Salle','ศรีลาซาล'],['YL19','Si Bearing','ศรีแบริ่ง'],['YL20','Si Dan','ศรีด่าน'],['YL21','Si Thepha','ศรีเทพา'],['YL22','Thipphawan','ทิพวัล'],['YL23','Samrong','สำโรง',1322,1622]]},
+{k:'arl',n:'ARL エアポートレールリンク',c:'#8E2323',op:'arl',hm:3,st:[
+['A8','Phaya Thai','พญาไท',964,1112],['A7','Ratchaprarop','ราชปรารภ'],['A6','Makkasan','มักกะสัน',1120,1092],['A5','Ramkhamhaeng','รามคำแหง'],['A4','Hua Mak','หัวหมาก',1522,1050],['A3','Ban Thap Chang','บ้านทับช้าง'],['A2','Lat Krabang','ลาดกระบัง',1820,1040],['A1','Suvarnabhumi','สุวรรณภูมิ',1930,1180]]},
+{k:'redD',n:'SRTダークレッドライン',c:'#D93025',op:'red',hm:3,st:[
+['','Krung Thep Aphiwat','กรุงเทพอภิวัฒน์',812,872],['','Chatuchak','จตุจักร'],['','Wat Samian Nari','วัดเสมียนนารี'],['','Bang Khen','บางเขน'],['','Thung Song Hong','ทุ่งสองห้อง'],['','Lak Si','หลักสี่',842,482],['','Kan Kheha','การเคหะ'],['','Don Mueang','ดอนเมือง',810,280],['','Lak Hok','หลักหก'],['','Rangsit','รังสิต',795,80]]},
+{k:'redL',n:'SRTライトレッドライン',c:'#F08080',op:'red',hm:3,st:[
+['@','redD',0],['','Bang Son','บางซ่อน',740,775],['','Bang Bamru','บางบำหรุ'],['','Taling Chan','ตลิ่งชัน',330,890]]}
+];
+var TRS=[
+['suk',23,'sil',1,2,0],['suk',16,'blu',26,4,1],['suk',15,'blu',25,4,1],['suk',7,'pnk',15,3,1],
+['suk',27,'blu',17,4,1],['sil',3,'blu',13,5,2],['suk',21,'arl',0,3,1],['suk',38,'yel',22,4,1],
+['sil',13,'blu',4,3,1],['blu',24,'yel',0,4,1],['blu',18,'arl',2,8,2],['blu',29,'pur',15,3,0],
+['blu',28,'redD',0,6,1],['pur',10,'pnk',0,3,1],['arl',4,'yel',10,8,2],['sil',8,'gold',0,3,0],
+['pur',14,'redL',1,5,1],['pnk',13,'redD',5,7,2]
+];
+var FARE={
+  bts:function(h){return Math.min(62,17+3*(h-1));},
+  gold:function(){return 16;},
+  blu:function(h){return Math.min(45,17+3*(h-1));},
+  pur:function(h){return Math.min(42,14+3*(h-1));},
+  pnk:function(h){return Math.min(45,15+3*(h-1));},
+  yel:function(h){return Math.min(45,15+3*(h-1));},
+  arl:function(h){return Math.min(45,15+4*h);},
+  red:function(h){return Math.min(42,12+5*h);}
+};
+var TT=['同一駅で直結乗換','改札直結の乗換','連絡通路で移動'];
+
+var N={},G={},lineNodes={},LM={};
+LINES.forEach(function(ln){LM[ln.k]=ln;});
+LINES.forEach(function(ln){
+  var ids=[],j,i;
+  for(j=0;j<ln.st.length;j++){
+    var s=ln.st[j];
+    if(s[0]==='@'){ids.push(s[1]+'_'+s[2]);}
+    else{
+      var id=ln.k+'_'+j;ids.push(id);
+      N[id]={cd:s[0],en:s[1],th:s[2],line:ln.k,x:(s.length>3?s[3]:null),y:(s.length>3?s[4]:null)};
+      G[id]=[];
+    }
+  }
+  var known=[];
+  for(j=0;j<ids.length;j++){if(N[ids[j]].x!==null)known.push(j);}
+  for(i=1;i<known.length;i++){
+    var a=known[i-1],b=known[i],na=N[ids[a]],nb=N[ids[b]];
+    for(j=a+1;j<b;j++){var t=(j-a)/(b-a);N[ids[j]].x=na.x+(nb.x-na.x)*t;N[ids[j]].y=na.y+(nb.y-na.y)*t;}
+  }
+  for(j=1;j<ids.length;j++){
+    var p=ids[j-1],q=ids[j];
+    G[p].push({to:q,w:ln.hm,line:ln.k,min:ln.hm,h:1});
+    G[q].push({to:p,w:ln.hm,line:ln.k,min:ln.hm,h:1});
+  }
+  lineNodes[ln.k]=ids;
+});
+var isTrf={};
+TRS.forEach(function(t){
+  var a=t[0]+'_'+t[1],b=t[2]+'_'+t[3];
+  G[a].push({to:b,w:t[4]+4,tr:t[5],min:t[4]});
+  G[b].push({to:a,w:t[4]+4,tr:t[5],min:t[4]});
+  isTrf[a]=1;isTrf[b]=1;
+});
+
+var NS='http://www.w3.org/2000/svg';
+function el(tg,at,pa){var e=document.createElementNS(NS,tg);for(var k in at)e.setAttribute(k,at[k]);if(pa)pa.appendChild(e);return e;}
+
+var MAPS=[];
+function makeMap(boxId,mode){
+  var box=document.getElementById(boxId);
+  var svg=box.querySelector('.mapc');
+  var gl=el('g',{fill:'none','stroke-linejoin':'round','stroke-linecap':'round'},svg);
+  var grg=el('g',{fill:'none','stroke-linecap':'round'},svg);
+  var gd=el('g',{},svg);
+  var gb=el('g',{},svg);
+  var gh=el('g',{},svg);
+  var M={svg:svg,gl:gl,grg:grg,gb:gb,dots:{},moved:0};
+
+  LINES.forEach(function(ln){
+    var pts=lineNodes[ln.k].map(function(id){return N[id].x+','+N[id].y;}).join(' ');
+    el('polyline',{points:pts,stroke:ln.c,'stroke-width':7},gl);
+  });
+  LINES.forEach(function(ln){
+    var ids=lineNodes[ln.k];
+    ids.forEach(function(id,j){
+      if(N[id].line!==ln.k)return;
+      var nd=N[id],tf=isTrf[id];
+      M.dots[id]=el('circle',{cx:nd.x,cy:nd.y,r:tf?8:4.5,fill:'#fff',stroke:tf?'#23262A':ln.c,'stroke-width':tf?3:2.2},gd);
+      var hit=el('circle',{cx:nd.x,cy:nd.y,r:22,fill:'rgba(0,0,0,0)',style:'cursor:pointer'},gh);
+      hit.addEventListener('click',function(){if(M.moved<6)pickMap(id);});
+      var pv=N[ids[Math.max(0,j-1)]],nx=N[ids[Math.min(ids.length-1,j+1)]];
+      var dx=Math.abs(nx.x-pv.x),dy=Math.abs(nx.y-pv.y);
+      var tx=el('text',{'font-size':'15','font-weight':tf?'600':'400',fill:'#23262A',
+        style:'paint-order:stroke;stroke:#FFFFFF;stroke-width:3.5px;stroke-linejoin:round;'},gb);
+      if(mode==='th'){
+        var tt=el('tspan',{},tx);tt.textContent=nd.th;
+      }else{
+        if(nd.cd){var t0=el('tspan',{fill:ln.c,'font-weight':'700'},tx);t0.textContent=nd.cd;}
+        var t1=el('tspan',{dx:nd.cd?'4':'0'},tx);t1.textContent=nd.en;
+      }
+      if(dx>=dy){
+        tx.setAttribute('transform','translate('+(nd.x+6)+' '+(nd.y-10)+') rotate(-45)');
+        tx.setAttribute('text-anchor','start');
+      }else{
+        if(j%2===0){tx.setAttribute('x',nd.x+13);tx.setAttribute('text-anchor','start');}
+        else{tx.setAttribute('x',nd.x-13);tx.setAttribute('text-anchor','end');}
+        tx.setAttribute('y',nd.y+4);
+      }
+    });
+  });
+
+  var bb=svg.getBBox();
+  var FIT={x:bb.x-12,y:bb.y-12,w:bb.width+24,h:bb.height+24};
+  var vb={x:FIT.x,y:FIT.y,w:FIT.w,h:FIT.h};
+  function fitH(){svg.style.height=Math.round(svg.clientWidth*FIT.h/FIT.w)+'px';}
+  fitH();window.addEventListener('resize',fitH);
+  function setVB(){svg.setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);}
+  function zoom(f){
+    var cx=vb.x+vb.w/2,cy=vb.y+vb.h/2,nw=vb.w*f,nh=vb.h*f;
+    if(nw<260||nw>FIT.w*1.1)return;
+    vb.x=cx-nw/2;vb.y=cy-nh/2;vb.w=nw;vb.h=nh;setVB();
+  }
+  box.querySelector('.zin').addEventListener('click',function(){zoom(0.6);});
+  box.querySelector('.zout').addEventListener('click',function(){zoom(1/0.6);});
+  box.querySelector('.zfit').addEventListener('click',function(){vb={x:FIT.x,y:FIT.y,w:FIT.w,h:FIT.h};setVB();});
+  var panEnabled=false,btnMove=box.querySelector('.zmove');
+  btnMove.addEventListener('click',function(){
+    panEnabled=!panEnabled;
+    btnMove.classList.toggle('on',panEnabled);
+    svg.style.touchAction=panEnabled?'none':'manipulation';
+    svg.style.cursor=panEnabled?'grab':'default';
+  });
+  var pts={},pcount=0,lastD=null;
+  svg.addEventListener('pointerdown',function(e){
+    if(!panEnabled)return;
+    svg.setPointerCapture(e.pointerId);
+    pts[e.pointerId]={x:e.clientX,y:e.clientY};pcount++;M.moved=0;lastD=null;
+  });
+  svg.addEventListener('pointermove',function(e){
+    if(!pts[e.pointerId])return;
+    var ks=Object.keys(pts);
+    if(pcount===1){
+      var dx=e.clientX-pts[e.pointerId].x,dy=e.clientY-pts[e.pointerId].y;
+      M.moved+=Math.abs(dx)+Math.abs(dy);
+      var sc=vb.w/svg.clientWidth;
+      vb.x-=dx*sc;vb.y-=dy*sc;setVB();
+      pts[e.pointerId]={x:e.clientX,y:e.clientY};
+    }else if(pcount>1){
+      pts[e.pointerId]={x:e.clientX,y:e.clientY};
+      var a=pts[ks[0]],b=pts[ks[1]];
+      var d=Math.sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y));
+      if(lastD){var f=lastD/d;if(f>0.5&&f<2)zoom(f);}
+      lastD=d;M.moved=99;
+    }
+  });
+  function pup(e){delete pts[e.pointerId];pcount=Math.max(0,pcount-1);lastD=null;}
+  svg.addEventListener('pointerup',pup);
+  svg.addEventListener('pointercancel',pup);
+  svg.addEventListener('wheel',function(e){e.preventDefault();zoom(e.deltaY>0?1.15:0.87);},{passive:false});
+  setVB();
+  MAPS.push(M);
+}
+makeMap('box1','en');
+makeMap('box2','th');
+makeMap('box3','en');
+
+var lg=document.getElementById('legend');
+LINES.forEach(function(ln){
+  var sp=document.createElement('span');sp.className='lchip';
+  var d=document.createElement('span');d.className='ldot';d.style.background=ln.c;
+  sp.appendChild(d);sp.appendChild(document.createTextNode(ln.n));
+  lg.appendChild(sp);
+});
+var selF=document.getElementById('from'),selT=document.getElementById('to');
+[selF,selT].forEach(function(sel){
+  LINES.forEach(function(ln){
+    var og=document.createElement('optgroup');og.label=ln.n;
+    lineNodes[ln.k].forEach(function(id){
+      if(N[id].line!==ln.k)return;
+      var o=document.createElement('option');o.value=id;
+      o.textContent=(N[id].cd?N[id].cd+' ':'')+N[id].en;
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+});
+
+function dijkstra(src,dst){
+  var dist={},prev={},done={},k;
+  for(k in N)dist[k]=1e9;
+  dist[src]=0;
+  while(true){
+    var u=null,best=1e9;
+    for(k in dist){if(!done[k]&&dist[k]<best){best=dist[k];u=k;}}
+    if(u===null||u===dst)break;
+    done[u]=1;
+    G[u].forEach(function(e){
+      if(dist[u]+e.w<dist[e.to]){dist[e.to]=dist[u]+e.w;prev[e.to]={f:u,e:e};}
+    });
+  }
+  if(dist[dst]>=1e9)return null;
+  var path=[],cur=dst;
+  while(cur!==src){var p=prev[cur];path.unshift({from:p.f,to:cur,e:p.e});cur=p.f;}
+  return path;
+}
+function esc(s){return s.replace(/[&<>]/g,function(c){return c==='&'?'&amp;':(c==='<'?'&lt;':'&gt;');});}
+function nm(id){
+  var n=N[id];
+  return (n.cd?'<b>'+esc(n.cd)+'</b> ':'')+esc(n.en);
+}
+function drawRoute(path){
+  MAPS.forEach(function(M){
+    M.grg.innerHTML='';M.gl.style.opacity=path?0.22:1;M.gb.style.opacity=path?0.3:1;
+    if(!path)return;
+    path.forEach(function(p){
+      var a=N[p.from],b=N[p.to];
+      el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,
+        stroke:p.e.line?LM[p.e.line].c:'#6B7280',
+        'stroke-width':p.e.line?11:5,
+        'stroke-dasharray':p.e.line?'none':'7 7'},M.grg);
+    });
+  });
+}
+function mark(){
+  MAPS.forEach(function(M){
+    var id;
+    for(id in M.dots){var tf=isTrf[id];M.dots[id].setAttribute('r',tf?8:4.5);}
+    [selF.value,selT.value].forEach(function(id){if(id&&M.dots[id])M.dots[id].setAttribute('r',13);});
+  });
+}
+function route(){
+  var f=selF.value,t=selT.value;mark();
+  if(!f||!t){drawRoute(null);return;}
+  if(f===t){document.getElementById('res').innerHTML='出発駅と到着駅が同じです。';drawRoute(null);return;}
+  var path=dijkstra(f,t);if(!path)return;
+  var steps=[];
+  path.forEach(function(p){
+    if(p.e.line){
+      var l=steps[steps.length-1];
+      if(l&&l.line===p.e.line){l.min+=p.e.min;l.h+=1;l.to=p.to;}
+      else steps.push({line:p.e.line,from:p.from,to:p.to,min:p.e.min,h:1});
+    }else steps.push({tr:p.e.tr,min:p.e.min});
+  });
+  var ride=0,walk=0,ntr=0,ops=[];
+  steps.forEach(function(s){
+    if(s.line){
+      ride+=s.min;
+      var op=LM[s.line].op,last=ops[ops.length-1];
+      if(last&&last.op===op)last.h+=s.h;else ops.push({op:op,h:s.h});
+    }else{walk+=s.min;ntr++;}
+  });
+  var fare=0;ops.forEach(function(o){fare+=Math.round(FARE[o.op](o.h));});
+  var total=ride+walk+4+3*ntr;
+  var h='<div style="display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;margin-bottom:4px;color:#23262A">'
+    +'<span style="font-size:16px;font-weight:600">所要 約'+total+'分</span>'
+    +'<span style="font-size:16px;font-weight:600">運賃 約'+fare+'฿</span>'
+    +'<span style="font-size:12px;color:#9AA0A6">乗換 '+ntr+'回・待ち時間込みの目安</span></div>';
+  steps.forEach(function(s){
+    if(s.line){
+      h+='<div class="leg" style="border-left-color:'+LM[s.line].c+'">'
+        +'<span style="font-weight:600">'+LM[s.line].n+'</span><br>'
+        +nm(s.from)+' → '+nm(s.to)
+        +'<span style="color:#9AA0A6">・'+s.h+'駅・約'+s.min+'分</span></div>';
+    }else{
+      var dj=s.tr<2;
+      h+='<div class="trrow"><span class="badge '+(dj?'b-dj':'b-wk')+'">'+(dj?'直結':'徒歩連絡')+'</span>'
+        +TT[s.tr]+'(約'+s.min+'分)</div>';
+    }
+  });
+  document.getElementById('res').innerHTML=h;
+  drawRoute(path);
+  document.getElementById('res').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function pickMap(id){
+  if(!selF.value){selF.value=id;}
+  else if(!selT.value){if(selF.value!==id)selT.value=id;}
+  else{selF.value=id;selT.value='';}
+  route();
+}
+selF.addEventListener('change',route);
+selT.addEventListener('change',route);
+document.getElementById('btnGo').addEventListener('click',route);
+document.getElementById('btnSwap').addEventListener('click',function(){
+  var a=selF.value;selF.value=selT.value;selT.value=a;route();
+});
+document.getElementById('btnReset').addEventListener('click',function(){
+  selF.value='';selT.value='';
+  document.getElementById('res').innerHTML='出発駅と到着駅を選ぶか、マップ上の駅をタップしてください(上下どちらのマップでもOK)。';
+  drawRoute(null);mark();
+});
+mark();
+})();
+</script>
+</body>
+</html>
